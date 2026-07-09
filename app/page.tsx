@@ -1,65 +1,135 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Player from "@/components/Player";
+import DictationInput from "@/components/DictationInput";
+import Feedback, { ScoreResult } from "@/components/Feedback";
+import { getDeviceId } from "@/lib/device";
+
+type Clip = {
+  id: string;
+  videoId: string;
+  startSec: number;
+  endSec: number;
+  tags: string[];
+  estDifficulty: number | null;
+};
 
 export default function Home() {
+  const [clip, setClip] = useState<Clip | null>(null);
+  const [typed, setTyped] = useState("");
+  const [result, setResult] = useState<ScoreResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const replayCount = useRef(0);
+  const shownAt = useRef(0);
+
+  const loadNext = useCallback(async () => {
+    setResult(null);
+    setTyped("");
+    setError(null);
+    replayCount.current = 0;
+    const res = await fetch("/api/clips/next");
+    if (!res.ok) {
+      setClip(null);
+      setError(
+        res.status === 404
+          ? "no clips indexed yet. run npm run index first."
+          : "could not load a clip.",
+      );
+      return;
+    }
+    setClip(await res.json());
+    shownAt.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    loadNext();
+  }, [loadNext]);
+
+  const check = async () => {
+    if (!clip || typed.trim().length === 0 || checking) return;
+    setChecking(true);
+    try {
+      const res = await fetch("/api/score", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ clipId: clip.id, typed }),
+      });
+      const data: ScoreResult = await res.json();
+      setResult(data);
+      fetch("/api/attempts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clipId: clip.id,
+          deviceId: getDeviceId(),
+          typedText: typed,
+          score: data.score,
+          verdict: data.verdict,
+          aiFeedback: data.matchedByFastPath
+            ? null
+            : { feedback: data.feedback, mishearings: data.mishearings },
+          matchedByFastPath: data.matchedByFastPath,
+          replayCount: replayCount.current,
+          msToAnswer: Date.now() - shownAt.current,
+        }),
+      }).catch(() => {});
+    } catch {
+      setError("scoring failed, try again.");
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-10">
+      <header className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight text-neutral-100">infinite listening</h1>
+        <p className="text-sm text-neutral-500">type what you hear. keep going.</p>
+      </header>
+
+      {error && (
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-6 text-neutral-300">
+          {error}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+
+      {clip && (
+        <>
+          <Player
+            key={clip.id}
+            videoId={clip.videoId}
+            startSec={clip.startSec}
+            endSec={clip.endSec}
+            revealed={result !== null}
+            onReplay={() => {
+              replayCount.current += 1;
+            }}
+          />
+
+          {clip.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {clip.tags.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs text-neutral-400"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {!result && (
+            <DictationInput value={typed} onChange={setTyped} onSubmit={check} disabled={checking} />
+          )}
+
+          {checking && !result && <p className="mt-4 text-sm text-neutral-500">checking...</p>}
+
+          {result && <Feedback result={result} onNext={loadNext} />}
+        </>
+      )}
+    </main>
   );
 }
