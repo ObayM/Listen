@@ -3,20 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { loadYouTubeApi } from "@/lib/youtube";
 
+let audioUnlocked = false;
+
 type Props = {
   videoId: string;
   startSec: number;
   endSec: number;
-  revealed: boolean;
   onReplay: () => void;
 };
 
-export default function Player({ videoId, startSec, endSec, revealed, onReplay }: Props) {
+export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
   const holderRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const pollRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [needsTap, setNeedsTap] = useState(!audioUnlocked);
 
   const stopPolling = () => {
     if (pollRef.current !== null) {
@@ -76,20 +78,39 @@ export default function Player({ videoId, startSec, endSec, revealed, onReplay }
   }, [videoId]);
 
   useEffect(() => {
-    if (ready) playRange();
+    if (ready && audioUnlocked) playRange();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, videoId, startSec, endSec]);
 
+  const start = () => {
+    audioUnlocked = true;
+    setNeedsTap(false);
+    playRange();
+  };
+
   const replay = () => {
     onReplay();
-    playRange();
+    if (needsTap) {
+      start();
+    } else {
+      playRange();
+    }
   };
 
   return (
     <div className="w-full">
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
         <div ref={holderRef} className="absolute inset-0 h-full w-full" />
-        {!revealed && (
+        {needsTap && ready && (
+          <button
+            onClick={start}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+          >
+            <div className="text-lg font-medium">tap to start listening</div>
+            <div className="text-sm text-neutral-500">browsers need one tap before audio plays</div>
+          </button>
+        )}
+        {!needsTap && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900 text-neutral-300">
             <div className="text-sm uppercase tracking-widest text-neutral-500">
               {playing ? "listening" : "clip ready"}

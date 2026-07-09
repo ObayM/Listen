@@ -1,21 +1,30 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-let cached: NeonHttpDatabase<typeof schema> | null = null;
+type DB = any;
 
-function init(): NeonHttpDatabase<typeof schema> {
+let cached: DB | null = null;
+
+function init(): DB {
   if (cached) return cached;
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  cached = drizzle(neon(url), { schema });
+
+  if (url.includes("neon.tech")) {
+    const { neon } = require("@neondatabase/serverless");
+    const { drizzle } = require("drizzle-orm/neon-http");
+    cached = drizzle(neon(url), { schema });
+  } else {
+    const { Pool } = require("pg");
+    const { drizzle } = require("drizzle-orm/node-postgres");
+    cached = drizzle(new Pool({ connectionString: url }), { schema });
+  }
   return cached;
 }
 
-export const db = new Proxy({} as NeonHttpDatabase<typeof schema>, {
+export const db = new Proxy({} as DB, {
   get(_target, prop) {
     const real = init();
-    const value = (real as any)[prop];
+    const value = real[prop];
     return typeof value === "function" ? value.bind(real) : value;
   },
 });

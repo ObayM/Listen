@@ -102,7 +102,6 @@ export default function Home() {
             videoId={clip.videoId}
             startSec={clip.startSec}
             endSec={clip.endSec}
-            revealed={result !== null}
             onReplay={() => {
               replayCount.current += 1;
             }}

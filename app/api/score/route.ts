@@ -37,24 +37,26 @@ export async function POST(req: Request) {
     });
   }
 
-  try {
-    const ai = await aiScore(reference, typed);
-    return NextResponse.json({
-      transcript: reference,
-      ...ai,
-      diff: local.diff,
-      matchedByFastPath: false,
-    });
-  } catch (e) {
-    const pct = Math.round(local.accuracy * 100);
-    return NextResponse.json({
-      transcript: reference,
-      score: pct,
-      verdict: pct >= 90 ? "correct" : pct >= 60 ? "close" : "incorrect",
-      feedback: "here is how it lines up. the highlighted words are the ones to listen for again.",
-      mishearings: [],
-      diff: local.diff,
-      matchedByFastPath: false,
-    });
+  if (process.env.AI_GATEWAY_API_KEY) {
+    try {
+      const ai = await aiScore(reference, typed);
+      return NextResponse.json({
+        transcript: reference,
+        ...ai,
+        diff: local.diff,
+        matchedByFastPath: false,
+      });
+    } catch {}
   }
+
+  const pct = Math.round(local.accuracy * 100);
+  return NextResponse.json({
+    transcript: reference,
+    score: pct,
+    verdict: pct >= 90 ? "correct" : pct >= 60 ? "close" : "incorrect",
+    feedback: "here is how it lines up. the highlighted words are the ones to listen for again.",
+    mishearings: [],
+    diff: local.diff,
+    matchedByFastPath: false,
+  });
 }
