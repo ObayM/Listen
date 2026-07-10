@@ -32,6 +32,13 @@ export const clips = pgTable("clips", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const accounts = pgTable("accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  username: text("username").notNull().unique(),
+  passphraseHash: text("passphrase_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const attempts = pgTable("attempts", {
   id: uuid("id").primaryKey().defaultRandom(),
   clipId: uuid("clip_id")
@@ -51,3 +58,4 @@ export const attempts = pgTable("attempts", {
 export type Clip = typeof clips.$inferSelect;
 export type Attempt = typeof attempts.$inferSelect;
 export type Video = typeof videos.$inferSelect;
+export type Account = typeof accounts.$inferSelect;

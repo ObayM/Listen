@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import Player from "@/components/Player";
 import DictationInput from "@/components/DictationInput";
 import Feedback, { ScoreResult } from "@/components/Feedback";
-import { getDeviceId } from "@/lib/device";
+import AccountBadge from "@/components/AccountBadge";
+import { getAccount, getIdentityId, type Account } from "@/lib/device";
 
 type Clip = {
   id: string;
@@ -33,12 +34,13 @@ export default function Home() {
   const [scores, setScores] = useState<number[]>([]);
   const [streak, setStreak] = useState(0);
   const [weakWords, setWeakWords] = useState<WeakWord[]>([]);
+  const [account, setAccountState] = useState<Account | null>(null);
   const replayCount = useRef(0);
   const shownAt = useRef(0);
   const difficultyRef = useRef<Difficulty>("any");
 
   const refreshWeakWords = useCallback(() => {
-    fetch(`/api/stats/weak-words?deviceId=${getDeviceId()}`)
+    fetch(`/api/stats/weak-words?deviceId=${getIdentityId()}`)
       .then((r) => r.json())
       .then((d) => setWeakWords(d.words ?? []))
       .catch(() => {});
@@ -71,9 +73,15 @@ export default function Home() {
       difficultyRef.current = saved;
       setDifficulty(saved);
     }
+    setAccountState(getAccount());
     loadNext();
     refreshWeakWords();
   }, [loadNext, refreshWeakWords]);
+
+  const handleAccountChange = (a: Account | null) => {
+    setAccountState(a);
+    refreshWeakWords();
+  };
 
   const pickDifficulty = (d: Difficulty) => {
     difficultyRef.current = d;
@@ -106,7 +114,7 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           clipId: clip.id,
-          deviceId: getDeviceId(),
+          deviceId: getIdentityId(),
           typedText: typed,
           score: data.score,
           verdict: data.verdict,
@@ -129,21 +137,24 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-10">
-      <header className="mb-8 flex items-center justify-between border-b border-[var(--line)] pb-4">
-        <div>
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
+        <div className="shrink-0">
           <div className="flex items-center gap-2">
-            <span className="rec-dot h-2 w-2 bg-[var(--accent)]" />
-            <h1 className="font-mono text-lg font-semibold tracking-widest text-neutral-100 uppercase">
+            <span className="rec-dot h-2 w-2 shrink-0 bg-[var(--accent)]" />
+            <h1 className="font-mono text-lg font-semibold whitespace-nowrap tracking-widest text-neutral-100 uppercase">
               infinite listening
             </h1>
           </div>
           <p className="mt-1 text-sm text-[var(--muted)]">type what you hear. keep going.</p>
         </div>
-        {seen > 0 && (
-          <div className="font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
-            no. <span className="text-neutral-200">{String(seen).padStart(3, "0")}</span>
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          <AccountBadge account={account} onChange={handleAccountChange} />
+          {seen > 0 && (
+            <div className="font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
+              no. <span className="text-neutral-200">{String(seen).padStart(3, "0")}</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
