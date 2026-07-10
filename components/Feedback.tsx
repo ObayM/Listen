@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { motion, useMotionValue, animate } from "framer-motion";
+
 type DiffToken = {
   type: "ok" | "sub" | "missing" | "extra";
   ref?: string;
@@ -21,37 +24,72 @@ const VERDICT_COLOR: Record<string, string> = {
   incorrect: "text-rose-400",
 };
 
+const tokenVariants = {
+  hidden: { opacity: 0, y: 4 },
+  show: { opacity: 1, y: 0 },
+};
+
 function Diff({ diff }: { diff: DiffToken[] }) {
   return (
-    <p className="flex flex-wrap gap-x-2 gap-y-1 text-lg leading-relaxed">
+    <motion.p
+      className="flex flex-wrap gap-x-2 gap-y-1 text-lg leading-relaxed"
+      initial="hidden"
+      animate="show"
+      transition={{ staggerChildren: 0.02 }}
+    >
       {diff.map((t, i) => {
         if (t.type === "ok")
           return (
-            <span key={i} className="text-neutral-300">
+            <motion.span key={i} variants={tokenVariants} className="text-neutral-300">
               {t.hyp}
-            </span>
+            </motion.span>
           );
         if (t.type === "sub")
           return (
-            <span key={i} className="inline-flex items-baseline gap-1">
+            <motion.span key={i} variants={tokenVariants} className="inline-flex items-baseline gap-1">
               <span className="text-emerald-400">{t.ref}</span>
               <span className="text-rose-400 line-through decoration-rose-500/60">{t.hyp}</span>
-            </span>
+            </motion.span>
           );
         if (t.type === "missing")
           return (
-            <span key={i} className="text-amber-400 underline decoration-dotted">
+            <motion.span
+              key={i}
+              variants={tokenVariants}
+              className="text-amber-400 underline decoration-dotted"
+            >
               {t.ref}
-            </span>
+            </motion.span>
           );
         return (
-          <span key={i} className="text-rose-400 line-through decoration-rose-500/60">
+          <motion.span
+            key={i}
+            variants={tokenVariants}
+            className="text-rose-400 line-through decoration-rose-500/60"
+          >
             {t.hyp}
-          </span>
+          </motion.span>
         );
       })}
-    </p>
+    </motion.p>
   );
+}
+
+function AnimatedScore({ value }: { value: number }) {
+  const count = useMotionValue(0);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const unsub = count.on("change", (v) => setDisplay(Math.round(v)));
+    const controls = animate(count, value, { duration: 0.6, ease: "easeOut" });
+    return () => {
+      controls.stop();
+      unsub();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <>{display}</>;
 }
 
 export default function Feedback({
@@ -62,35 +100,41 @@ export default function Feedback({
   onNext: () => void;
 }) {
   return (
-    <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className="mt-6 border border-[var(--line)] bg-[var(--panel)] p-5"
+    >
       <div className="flex items-center justify-between">
-        <div className={`text-2xl font-semibold ${VERDICT_COLOR[result.verdict]}`}>
-          {result.score}
-          <span className="ml-1 text-sm font-normal text-neutral-500">/100</span>
+        <div className={`font-mono text-2xl font-semibold tabular-nums ${VERDICT_COLOR[result.verdict]}`}>
+          <AnimatedScore value={result.score} />
+          <span className="ml-1 text-sm font-normal text-[var(--muted)]">/100</span>
         </div>
-        <div className="text-xs uppercase tracking-widest text-neutral-500">
+        <div className="border border-[var(--line)] px-2 py-0.5 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
           {result.matchedByFastPath ? "instant" : "diff"}
         </div>
       </div>
 
       <div className="mt-4">
-        <div className="mb-1 text-xs uppercase tracking-widest text-neutral-500">how it lines up</div>
+        <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">how it lines up</div>
         <Diff diff={result.diff} />
       </div>
 
       <div className="mt-4">
-        <div className="mb-1 text-xs uppercase tracking-widest text-neutral-500">actual</div>
+        <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">actual</div>
         <p className="text-lg text-neutral-100">{result.transcript}</p>
       </div>
 
       <p className="mt-4 text-neutral-300">{result.feedback}</p>
 
-      <button
+      <motion.button
         onClick={onNext}
-        className="mt-5 w-full rounded-xl bg-white px-4 py-3 font-medium text-black hover:bg-neutral-200"
+        whileTap={{ scale: 0.98 }}
+        className="mt-5 w-full bg-[var(--accent)] px-4 py-3 font-mono text-sm font-medium tracking-wide text-black uppercase transition-opacity hover:opacity-90"
       >
         next clip
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 }

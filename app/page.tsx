@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Player from "@/components/Player";
 import DictationInput from "@/components/DictationInput";
 import Feedback, { ScoreResult } from "@/components/Feedback";
@@ -21,6 +22,7 @@ export default function Home() {
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [seen, setSeen] = useState(0);
   const replayCount = useRef(0);
   const shownAt = useRef(0);
 
@@ -40,6 +42,7 @@ export default function Home() {
       return;
     }
     setClip(await res.json());
+    setSeen((n) => n + 1);
     shownAt.current = Date.now();
   }, []);
 
@@ -81,51 +84,70 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-10">
-      <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-neutral-100">infinite listening</h1>
-        <p className="text-sm text-neutral-500">type what you hear. keep going.</p>
+      <header className="mb-8 flex items-center justify-between border-b border-[var(--line)] pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rec-dot h-2 w-2 bg-[var(--accent)]" />
+            <h1 className="font-mono text-lg font-semibold tracking-widest text-neutral-100 uppercase">
+              infinite listening
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-[var(--muted)]">type what you hear. keep going.</p>
+        </div>
+        {seen > 0 && (
+          <div className="font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
+            no. <span className="text-neutral-200">{String(seen).padStart(3, "0")}</span>
+          </div>
+        )}
       </header>
 
       {error && (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-6 text-neutral-300">
-          {error}
-        </div>
+        <div className="border border-[var(--line)] bg-[var(--panel)] p-6 text-neutral-300">{error}</div>
       )}
 
-      {clip && (
-        <>
-          <Player
+      <AnimatePresence mode="wait">
+        {clip && (
+          <motion.div
             key={clip.id}
-            videoId={clip.videoId}
-            startSec={clip.startSec}
-            endSec={clip.endSec}
-            onReplay={() => {
-              replayCount.current += 1;
-            }}
-          />
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <Player
+              videoId={clip.videoId}
+              startSec={clip.startSec}
+              endSec={clip.endSec}
+              onReplay={() => {
+                replayCount.current += 1;
+              }}
+            />
 
-          {clip.tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {clip.tags.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs text-neutral-400"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
+            {clip.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {clip.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="border border-[var(--line)] px-2 py-0.5 font-mono text-xs tracking-wide text-[var(--muted)]"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          {!result && (
-            <DictationInput value={typed} onChange={setTyped} onSubmit={check} disabled={checking} />
-          )}
+            {!result && (
+              <DictationInput value={typed} onChange={setTyped} onSubmit={check} disabled={checking} />
+            )}
 
-          {checking && !result && <p className="mt-4 text-sm text-neutral-500">checking...</p>}
+            {checking && !result && (
+              <p className="mt-4 font-mono text-sm text-[var(--muted)]">checking...</p>
+            )}
 
-          {result && <Feedback result={result} onNext={loadNext} />}
-        </>
-      )}
+            {result && <Feedback result={result} onNext={loadNext} />}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

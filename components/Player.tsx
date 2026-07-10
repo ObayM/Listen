@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { loadYouTubeApi } from "@/lib/youtube";
+
+const BAR_HEIGHTS = [10, 22, 16, 28, 14, 20, 12];
 
 let audioUnlocked = false;
 
@@ -99,41 +102,60 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
 
   return (
     <div className="w-full">
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+      <div className="relative aspect-video w-full overflow-hidden border border-[var(--line)] bg-black">
         <div ref={holderRef} className="absolute inset-0 h-full w-full" />
         {needsTap && ready && (
-          <button
+          <motion.button
             onClick={start}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--panel)] text-neutral-200"
+            whileTap={{ scale: 0.98 }}
           >
             <div className="text-lg font-medium">tap to start listening</div>
-            <div className="text-sm text-neutral-500">browsers need one tap before audio plays</div>
-          </button>
+            <div className="text-sm text-[var(--muted)]">browsers need one tap before audio plays</div>
+          </motion.button>
         )}
         {!needsTap && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900 text-neutral-300">
-            <div className="text-sm uppercase tracking-widest text-neutral-500">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[var(--panel)] text-neutral-300">
+            <div className="flex items-center gap-2 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
+              <span
+                className={`h-1.5 w-1.5 ${playing ? "rec-dot bg-[var(--accent)]" : "bg-[var(--muted)]"}`}
+              />
               {playing ? "listening" : "clip ready"}
             </div>
-            <div className="flex items-end gap-1">
-              {[10, 22, 16, 28, 14, 20, 12].map((h, i) => (
-                <span
+            <div className="flex h-8 items-end gap-1.5">
+              {BAR_HEIGHTS.map((h, i) => (
+                <motion.span
                   key={i}
-                  className={`w-1.5 rounded-full bg-neutral-500 ${playing ? "animate-pulse" : ""}`}
-                  style={{ height: `${h}px`, animationDelay: `${i * 90}ms` }}
+                  className="w-1.5 bg-[var(--accent)]"
+                  style={{ height: `${h}px`, transformOrigin: "bottom" }}
+                  animate={
+                    playing
+                      ? { scaleY: [0.4, 1.4, 0.7, 1.2, 0.4] }
+                      : { scaleY: 0.5 }
+                  }
+                  transition={
+                    playing
+                      ? {
+                          duration: 0.7 + i * 0.08,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }
+                      : { duration: 0.2 }
+                  }
                 />
               ))}
             </div>
           </div>
         )}
       </div>
-      <button
+      <motion.button
         onClick={replay}
         disabled={!ready}
-        className="mt-3 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-800 disabled:opacity-40"
+        whileTap={{ scale: 0.97 }}
+        className="mt-3 border border-[var(--line)] px-4 py-2 text-sm text-neutral-200 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40"
       >
         replay clip
-      </button>
+      </motion.button>
     </div>
   );
 }
