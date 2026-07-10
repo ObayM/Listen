@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Player from "@/components/Player";
 import DictationInput from "@/components/DictationInput";
+import BlankInput from "@/components/BlankInput";
 import Feedback, { ScoreResult } from "@/components/Feedback";
 import AccountBadge from "@/components/AccountBadge";
 import { getAccount, getIdentityId, type Account } from "@/lib/device";
+import type { BlankToken } from "@/lib/blanks";
 
 type Clip = {
   id: string;
@@ -15,22 +17,29 @@ type Clip = {
   endSec: number;
   tags: string[];
   estDifficulty: number | null;
+  blanks?: BlankToken[];
 };
 
 type Difficulty = "any" | "easy" | "medium" | "hard";
 const DIFFICULTIES: Difficulty[] = ["any", "easy", "medium", "hard"];
 const DIFFICULTY_KEY = "en-listening-difficulty";
 
+type Mode = "dictation" | "blanks";
+const MODES: Mode[] = ["dictation", "blanks"];
+const MODE_KEY = "en-listening-mode";
+
 type WeakWord = { word: string; count: number };
 
 export default function Home() {
   const [clip, setClip] = useState<Clip | null>(null);
   const [typed, setTyped] = useState("");
+  const [guesses, setGuesses] = useState<string[]>([]);
   const [result, setResult] = useState<ScoreResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seen, setSeen] = useState(0);
   const [difficulty, setDifficulty] = useState<Difficulty>("any");
+  const [mode, setMode] = useState<Mode>("dictation");
   const [scores, setScores] = useState<number[]>([]);
   const [streak, setStreak] = useState(0);
   const [weakWords, setWeakWords] = useState<WeakWord[]>([]);
@@ -38,6 +47,7 @@ export default function Home() {
   const replayCount = useRef(0);
   const shownAt = useRef(0);
   const difficultyRef = useRef<Difficulty>("any");
+  const modeRef = useRef<Mode>("dictation");
 
   const refreshWeakWords = useCallback(() => {
     fetch(`/api/stats/weak-words?deviceId=${getIdentityId()}`)
@@ -49,10 +59,14 @@ export default function Home() {
   const loadNext = useCallback(async () => {
     setResult(null);
     setTyped("");
+    setGuesses([]);
     setError(null);
     replayCount.current = 0;
-    const q = difficultyRef.current === "any" ? "" : `?difficulty=${difficultyRef.current}`;
-    const res = await fetch(`/api/clips/next${q}`);
+    const params = new URLSearchParams();
+    if (difficultyRef.current !== "any") params.set("difficulty", difficultyRef.current);
+    if (modeRef.current === "blanks") params.set("mode", "blanks");
+    const qs = params.toString();
+    const res = await fetch(`/api/clips/next${qs ? `?${qs}` : ""}`);
     if (!res.ok) {
       setClip(null);
       setError(
@@ -73,6 +87,11 @@ export default function Home() {
       difficultyRef.current = saved;
       setDifficulty(saved);
     }
+    const savedMode = window.localStorage.getItem(MODE_KEY) as Mode | null;
+    if (savedMode && MODES.includes(savedMode)) {
+      modeRef.current = savedMode;
+      setMode(savedMode);
+    }
     setAccountState(getAccount());
     loadNext();
     refreshWeakWords();
@@ -90,24 +109,42 @@ export default function Home() {
     loadNext();
   };
 
+  const pickMode = (m: Mode) => {
+    modeRef.current = m;
+    setMode(m);
+    window.localStorage.setItem(MODE_KEY, m);
+    loadNext();
+  };
+
   const check = async () => {
-    if (!clip || typed.trim().length === 0 || checking) return;
+    if (!clip || checking) return;
+    const isBlanks = mode === "blanks";
+    if (isBlanks && !guesses.some((g) => g && g.trim().length > 0)) return;
+    if (!isBlanks && typed.trim().length === 0) return;
+
     setChecking(true);
     try {
       const res = await fetch("/api/score", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clipId: clip.id, typed }),
+        body: JSON.stringify(
+          isBlanks ? { clipId: clip.id, mode: "blanks", guesses } : { clipId: clip.id, typed },
+        ),
       });
       const data: ScoreResult = await res.json();
       setResult(data);
       setScores((s) => [...s, data.score]);
       setStreak((s) => (data.verdict === "correct" ? s + 1 : 0));
 
-      const missedWords = data.diff
-        .filter((t) => t.type === "sub" || t.type === "missing")
-        .map((t) => (t.ref ?? "").toLowerCase().replace(/[^a-z']/g, ""))
-        .filter(Boolean);
+      const missedWords = data.blankResults
+        ? data.blankResults
+            .filter((b) => !b.correct)
+            .map((b) => b.answer.toLowerCase().replace(/[^a-z']/g, ""))
+            .filter(Boolean)
+        : data.diff
+            .filter((t) => t.type === "sub" || t.type === "missing")
+            .map((t) => (t.ref ?? "").toLowerCase().replace(/[^a-z']/g, ""))
+            .filter(Boolean);
 
       fetch("/api/attempts", {
         method: "POST",
@@ -115,7 +152,7 @@ export default function Home() {
         body: JSON.stringify({
           clipId: clip.id,
           deviceId: getIdentityId(),
-          typedText: typed,
+          typedText: isBlanks ? guesses.join(" | ") : typed,
           score: data.score,
           verdict: data.verdict,
           matchedByFastPath: data.matchedByFastPath,
@@ -170,20 +207,37 @@ export default function Home() {
             </span>
           )}
         </div>
-        <div className="flex border border-[var(--line)]">
-          {DIFFICULTIES.map((d) => (
-            <button
-              key={d}
-              onClick={() => pickDifficulty(d)}
-              className={`px-3 py-1.5 font-mono text-xs tracking-widest uppercase transition-colors ${
-                difficulty === d
-                  ? "bg-[var(--accent)] text-black"
-                  : "text-[var(--muted)] hover:text-neutral-200"
-              }`}
-            >
-              {d}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex border border-[var(--line)]">
+            {MODES.map((m) => (
+              <button
+                key={m}
+                onClick={() => pickMode(m)}
+                className={`px-3 py-1.5 font-mono text-xs tracking-widest uppercase transition-colors ${
+                  mode === m
+                    ? "bg-[var(--accent)] text-black"
+                    : "text-[var(--muted)] hover:text-neutral-200"
+                }`}
+              >
+                {m === "dictation" ? "dictation" : "fill blanks"}
+              </button>
+            ))}
+          </div>
+          <div className="flex border border-[var(--line)]">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d}
+                onClick={() => pickDifficulty(d)}
+                className={`px-3 py-1.5 font-mono text-xs tracking-widest uppercase transition-colors ${
+                  difficulty === d
+                    ? "bg-[var(--accent)] text-black"
+                    : "text-[var(--muted)] hover:text-neutral-200"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -233,7 +287,17 @@ export default function Home() {
               </div>
             )}
 
-            {!result && (
+            {!result && mode === "blanks" && clip.blanks && (
+              <BlankInput
+                tokens={clip.blanks}
+                guesses={guesses}
+                onChange={setGuesses}
+                onSubmit={check}
+                disabled={checking}
+              />
+            )}
+
+            {!result && mode === "dictation" && (
               <DictationInput value={typed} onChange={setTyped} onSubmit={check} disabled={checking} />
             )}
 
@@ -241,7 +305,7 @@ export default function Home() {
               <p className="mt-4 font-mono text-sm text-[var(--muted)]">checking...</p>
             )}
 
-            {result && <Feedback result={result} onNext={loadNext} />}
+            {result && <Feedback result={result} onNext={loadNext} blankTokens={clip.blanks} />}
           </motion.div>
         )}
       </AnimatePresence>

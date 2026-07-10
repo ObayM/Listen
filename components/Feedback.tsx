@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, animate } from "framer-motion";
+import type { BlankToken, BlankResult } from "@/lib/blanks";
 
 type DiffToken = {
   type: "ok" | "sub" | "missing" | "extra";
@@ -16,6 +17,8 @@ export type ScoreResult = {
   feedback: string;
   diff: DiffToken[];
   matchedByFastPath: boolean;
+  mode?: "dictation" | "blanks";
+  blankResults?: BlankResult[];
 };
 
 const VERDICT_COLOR: Record<string, string> = {
@@ -75,6 +78,38 @@ function Diff({ diff }: { diff: DiffToken[] }) {
   );
 }
 
+function BlanksReveal({ tokens, results }: { tokens: BlankToken[]; results: BlankResult[] }) {
+  return (
+    <motion.p
+      className="text-lg leading-relaxed whitespace-pre-wrap"
+      initial="hidden"
+      animate="show"
+      transition={{ staggerChildren: 0.03 }}
+    >
+      {tokens.map((t, i) => {
+        if (!("blank" in t)) return <span key={i}>{t.text}</span>;
+        const r = results[t.index];
+        if (!r) return null;
+        if (r.correct) {
+          return (
+            <motion.span key={i} variants={tokenVariants} className="text-emerald-400">
+              {r.answer}
+            </motion.span>
+          );
+        }
+        return (
+          <motion.span key={i} variants={tokenVariants} className="inline-flex items-baseline gap-1">
+            <span className="text-emerald-400">{r.answer}</span>
+            {r.guess && (
+              <span className="text-rose-400 line-through decoration-rose-500/60">{r.guess}</span>
+            )}
+          </motion.span>
+        );
+      })}
+    </motion.p>
+  );
+}
+
 function AnimatedScore({ value }: { value: number }) {
   const count = useMotionValue(0);
   const [display, setDisplay] = useState(0);
@@ -95,10 +130,14 @@ function AnimatedScore({ value }: { value: number }) {
 export default function Feedback({
   result,
   onNext,
+  blankTokens,
 }: {
   result: ScoreResult;
   onNext: () => void;
+  blankTokens?: BlankToken[];
 }) {
+  const isBlanks = result.mode === "blanks" && blankTokens && result.blankResults;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -112,19 +151,25 @@ export default function Feedback({
           <span className="ml-1 text-sm font-normal text-[var(--muted)]">/100</span>
         </div>
         <div className="border border-[var(--line)] px-2 py-0.5 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
-          {result.matchedByFastPath ? "instant" : "diff"}
+          {result.mode === "blanks" ? "blanks" : result.matchedByFastPath ? "instant" : "diff"}
         </div>
       </div>
 
       <div className="mt-4">
         <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">how it lines up</div>
-        <Diff diff={result.diff} />
+        {isBlanks ? (
+          <BlanksReveal tokens={blankTokens!} results={result.blankResults!} />
+        ) : (
+          <Diff diff={result.diff} />
+        )}
       </div>
 
-      <div className="mt-4">
-        <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">actual</div>
-        <p className="text-lg text-neutral-100">{result.transcript}</p>
-      </div>
+      {!isBlanks && (
+        <div className="mt-4">
+          <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">actual</div>
+          <p className="text-lg text-neutral-100">{result.transcript}</p>
+        </div>
+      )}
 
       <p className="mt-4 text-neutral-300">{result.feedback}</p>
 
