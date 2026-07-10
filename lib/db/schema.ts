@@ -44,6 +44,7 @@ export const attempts = pgTable("attempts", {
   matchedByFastPath: boolean("matched_by_fast_path").notNull().default(false),
   replayCount: integer("replay_count").notNull().default(0),
   msToAnswer: integer("ms_to_answer"),
+  missedWords: text("missed_words").array().notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

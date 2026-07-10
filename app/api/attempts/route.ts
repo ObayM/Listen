@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     matchedByFastPath: Boolean(body.matchedByFastPath),
     replayCount: Math.round(body.replayCount ?? 0),
     msToAnswer: body.msToAnswer != null ? Math.round(body.msToAnswer) : null,
+    missedWords: Array.isArray(body.missedWords) ? body.missedWords.slice(0, 20) : [],
   });
 
   return NextResponse.json({ ok: true });

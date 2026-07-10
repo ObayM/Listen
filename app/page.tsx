@@ -16,6 +16,12 @@ type Clip = {
   estDifficulty: number | null;
 };
 
+type Difficulty = "any" | "easy" | "medium" | "hard";
+const DIFFICULTIES: Difficulty[] = ["any", "easy", "medium", "hard"];
+const DIFFICULTY_KEY = "en-listening-difficulty";
+
+type WeakWord = { word: string; count: number };
+
 export default function Home() {
   const [clip, setClip] = useState<Clip | null>(null);
   const [typed, setTyped] = useState("");
@@ -23,15 +29,28 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seen, setSeen] = useState(0);
+  const [difficulty, setDifficulty] = useState<Difficulty>("any");
+  const [scores, setScores] = useState<number[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [weakWords, setWeakWords] = useState<WeakWord[]>([]);
   const replayCount = useRef(0);
   const shownAt = useRef(0);
+  const difficultyRef = useRef<Difficulty>("any");
+
+  const refreshWeakWords = useCallback(() => {
+    fetch(`/api/stats/weak-words?deviceId=${getDeviceId()}`)
+      .then((r) => r.json())
+      .then((d) => setWeakWords(d.words ?? []))
+      .catch(() => {});
+  }, []);
 
   const loadNext = useCallback(async () => {
     setResult(null);
     setTyped("");
     setError(null);
     replayCount.current = 0;
-    const res = await fetch("/api/clips/next");
+    const q = difficultyRef.current === "any" ? "" : `?difficulty=${difficultyRef.current}`;
+    const res = await fetch(`/api/clips/next${q}`);
     if (!res.ok) {
       setClip(null);
       setError(
@@ -47,8 +66,21 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const saved = window.localStorage.getItem(DIFFICULTY_KEY) as Difficulty | null;
+    if (saved && DIFFICULTIES.includes(saved)) {
+      difficultyRef.current = saved;
+      setDifficulty(saved);
+    }
     loadNext();
-  }, [loadNext]);
+    refreshWeakWords();
+  }, [loadNext, refreshWeakWords]);
+
+  const pickDifficulty = (d: Difficulty) => {
+    difficultyRef.current = d;
+    setDifficulty(d);
+    window.localStorage.setItem(DIFFICULTY_KEY, d);
+    loadNext();
+  };
 
   const check = async () => {
     if (!clip || typed.trim().length === 0 || checking) return;
@@ -61,6 +93,14 @@ export default function Home() {
       });
       const data: ScoreResult = await res.json();
       setResult(data);
+      setScores((s) => [...s, data.score]);
+      setStreak((s) => (data.verdict === "correct" ? s + 1 : 0));
+
+      const missedWords = data.diff
+        .filter((t) => t.type === "sub" || t.type === "missing")
+        .map((t) => (t.ref ?? "").toLowerCase().replace(/[^a-z']/g, ""))
+        .filter(Boolean);
+
       fetch("/api/attempts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -73,14 +113,19 @@ export default function Home() {
           matchedByFastPath: data.matchedByFastPath,
           replayCount: replayCount.current,
           msToAnswer: Date.now() - shownAt.current,
+          missedWords,
         }),
-      }).catch(() => {});
+      })
+        .then(() => refreshWeakWords())
+        .catch(() => {});
     } catch {
       setError("scoring failed, try again.");
     } finally {
       setChecking(false);
     }
   };
+
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-5 py-10">
@@ -100,6 +145,47 @@ export default function Home() {
           </div>
         )}
       </header>
+
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
+          {avgScore !== null && (
+            <span>
+              avg <span className="text-neutral-200">{avgScore}</span>
+            </span>
+          )}
+          {streak > 1 && (
+            <span>
+              streak <span className="text-[var(--accent)]">{streak}</span>
+            </span>
+          )}
+        </div>
+        <div className="flex border border-[var(--line)]">
+          {DIFFICULTIES.map((d) => (
+            <button
+              key={d}
+              onClick={() => pickDifficulty(d)}
+              className={`px-3 py-1.5 font-mono text-xs tracking-widest uppercase transition-colors ${
+                difficulty === d
+                  ? "bg-[var(--accent)] text-black"
+                  : "text-[var(--muted)] hover:text-neutral-200"
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {weakWords.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-2 border border-[var(--line)] bg-[var(--panel)] px-3 py-2">
+          <span className="font-mono text-xs tracking-widest text-[var(--muted)] uppercase">listen for</span>
+          {weakWords.map((w) => (
+            <span key={w.word} className="font-mono text-xs text-neutral-300">
+              {w.word}
+            </span>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="border border-[var(--line)] bg-[var(--panel)] p-6 text-neutral-300">{error}</div>

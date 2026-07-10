@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { and, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clips } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const DIFFICULTY_RANGES: Record<string, [number, number]> = {
+  easy: [0, 4.2],
+  medium: [4.2, 5.5],
+  hard: [5.5, 100],
+};
+
+export async function GET(req: Request) {
+  const tier = new URL(req.url).searchParams.get("difficulty");
+  const range = tier ? DIFFICULTY_RANGES[tier] : undefined;
+
   const rows = await db
     .select({
       id: clips.id,
@@ -16,6 +25,7 @@ export async function GET() {
       estDifficulty: clips.estDifficulty,
     })
     .from(clips)
+    .where(range ? and(gte(clips.estDifficulty, range[0]), lte(clips.estDifficulty, range[1])) : undefined)
     .orderBy(sql`random()`)
     .limit(1);
 
