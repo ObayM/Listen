@@ -15,7 +15,6 @@ export async function POST(req: Request) {
     typedText,
     score: Math.round(score ?? 0),
     verdict: verdict ?? "incorrect",
-    aiFeedback: body.aiFeedback ?? null,
     matchedByFastPath: Boolean(body.matchedByFastPath),
     replayCount: Math.round(body.replayCount ?? 0),
     msToAnswer: body.msToAnswer != null ? Math.round(body.msToAnswer) : null,

@@ -11,7 +11,6 @@ export type ScoreResult = {
   score: number;
   verdict: "correct" | "close" | "incorrect";
   feedback: string;
-  mishearings: { heard: string; actual: string; tip: string }[];
   diff: DiffToken[];
   matchedByFastPath: boolean;
 };
@@ -70,7 +69,7 @@ export default function Feedback({
           <span className="ml-1 text-sm font-normal text-neutral-500">/100</span>
         </div>
         <div className="text-xs uppercase tracking-widest text-neutral-500">
-          {result.matchedByFastPath ? "instant" : "coached"}
+          {result.matchedByFastPath ? "instant" : "diff"}
         </div>
       </div>
 
@@ -85,19 +84,6 @@ export default function Feedback({
       </div>
 
       <p className="mt-4 text-neutral-300">{result.feedback}</p>
-
-      {result.mishearings.length > 0 && (
-        <ul className="mt-4 space-y-2">
-          {result.mishearings.map((m, i) => (
-            <li key={i} className="rounded-lg bg-neutral-800/60 p-3 text-sm text-neutral-300">
-              <span className="text-rose-400">{m.heard}</span>
-              <span className="mx-2 text-neutral-500">should be</span>
-              <span className="text-emerald-400">{m.actual}</span>
-              <div className="mt-1 text-neutral-400">{m.tip}</div>
-            </li>
-          ))}
-        </ul>
-      )}
 
       <button
         onClick={onNext}

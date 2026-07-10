@@ -1,7 +1,6 @@
 import {
   boolean,
   integer,
-  jsonb,
   pgTable,
   real,
   text,
@@ -42,7 +41,6 @@ export const attempts = pgTable("attempts", {
   typedText: text("typed_text").notNull(),
   score: integer("score").notNull(),
   verdict: text("verdict").notNull(),
-  aiFeedback: jsonb("ai_feedback"),
   matchedByFastPath: boolean("matched_by_fast_path").notNull().default(false),
   replayCount: integer("replay_count").notNull().default(0),
   msToAnswer: integer("ms_to_answer"),

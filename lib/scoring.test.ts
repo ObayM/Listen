@@ -30,7 +30,7 @@ test("punctuation and case ignored", () => {
   assert.equal(scoreLocal("Well, it is here!", "well it is here").clean, true);
 });
 
-test("apostrophe-less contraction falls through to llm", () => {
+test("apostrophe-less contraction is not clean", () => {
   assert.equal(scoreLocal("that's it", "thats it").clean, false);
 });
 

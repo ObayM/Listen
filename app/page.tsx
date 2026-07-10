@@ -67,9 +67,6 @@ export default function Home() {
           typedText: typed,
           score: data.score,
           verdict: data.verdict,
-          aiFeedback: data.matchedByFastPath
-            ? null
-            : { feedback: data.feedback, mishearings: data.mishearings },
           matchedByFastPath: data.matchedByFastPath,
           replayCount: replayCount.current,
           msToAnswer: Date.now() - shownAt.current,

@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clips } from "@/lib/db/schema";
 import { scoreLocal } from "@/lib/scoring";
-import { aiScore } from "@/lib/aiScore";
 
 const CLEAN_FEEDBACK = ["nice, got it word for word.", "spot on.", "clean, you heard all of it."];
 
@@ -31,22 +30,9 @@ export async function POST(req: Request) {
       score: 100,
       verdict: "correct",
       feedback,
-      mishearings: [],
       diff: local.diff,
       matchedByFastPath: true,
     });
-  }
-
-  if (process.env.AI_GATEWAY_API_KEY) {
-    try {
-      const ai = await aiScore(reference, typed);
-      return NextResponse.json({
-        transcript: reference,
-        ...ai,
-        diff: local.diff,
-        matchedByFastPath: false,
-      });
-    } catch {}
   }
 
   const pct = Math.round(local.accuracy * 100);
@@ -55,7 +41,6 @@ export async function POST(req: Request) {
     score: pct,
     verdict: pct >= 90 ? "correct" : pct >= 60 ? "close" : "incorrect",
     feedback: "here is how it lines up. the highlighted words are the ones to listen for again.",
-    mishearings: [],
     diff: local.diff,
     matchedByFastPath: false,
   });
