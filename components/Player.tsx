@@ -4,9 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { loadYouTubeApi } from "@/lib/youtube";
 
-const BAR_HEIGHTS = [10, 22, 16, 28, 14, 20, 12];
-
+const BAR_HEIGHTS = [18, 30, 23, 38, 28, 43, 25, 35, 20];
 let audioUnlocked = false;
+
+type YouTubePlayer = {
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  getCurrentTime?: () => number;
+  destroy?: () => void;
+};
+
+type YouTubeWindow = Window & {
+  YT: {
+    Player: new (
+      element: HTMLDivElement,
+      options: { videoId: string; playerVars: Record<string, number>; events: { onReady: () => void } },
+    ) => YouTubePlayer;
+  };
+};
 
 type Props = {
   videoId: string;
@@ -17,7 +33,7 @@ type Props = {
 
 export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
   const holderRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
   const pollRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -31,16 +47,15 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
   };
 
   const playRange = () => {
-    const p = playerRef.current;
-    if (!p) return;
+    const player = playerRef.current;
+    if (!player) return;
     stopPolling();
-    p.seekTo(startSec, true);
-    p.playVideo();
+    player.seekTo(startSec, true);
+    player.playVideo();
     setPlaying(true);
     pollRef.current = window.setInterval(() => {
-      const t = p.getCurrentTime?.() ?? 0;
-      if (t >= endSec) {
-        p.pauseVideo();
+      if ((player.getCurrentTime?.() ?? 0) >= endSec) {
+        player.pauseVideo();
         setPlaying(false);
         stopPolling();
       }
@@ -51,8 +66,8 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
     let cancelled = false;
     loadYouTubeApi().then(() => {
       if (cancelled || !holderRef.current) return;
-      const w = window as any;
-      playerRef.current = new w.YT.Player(holderRef.current, {
+      const browser = window as unknown as YouTubeWindow;
+      playerRef.current = new browser.YT.Player(holderRef.current, {
         videoId,
         playerVars: {
           controls: 0,
@@ -63,19 +78,13 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
           iv_load_policy: 3,
           fs: 0,
         },
-        events: {
-          onReady: () => {
-            setReady(true);
-          },
-        },
+        events: { onReady: () => setReady(true) },
       });
     });
     return () => {
       cancelled = true;
       stopPolling();
-      try {
-        playerRef.current?.destroy?.();
-      } catch {}
+      try { playerRef.current?.destroy?.(); } catch {}
       playerRef.current = null;
     };
   }, [videoId]);
@@ -85,77 +94,45 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, videoId, startSec, endSec]);
 
-  const start = () => {
-    audioUnlocked = true;
-    setNeedsTap(false);
-    playRange();
-  };
-
   const replay = () => {
     onReplay();
     if (needsTap) {
-      start();
-    } else {
-      playRange();
+      audioUnlocked = true;
+      setNeedsTap(false);
     }
+    playRange();
   };
 
   return (
-    <div className="w-full">
-      <div className="relative aspect-video w-full overflow-hidden border border-[var(--line)] bg-black">
-        <div ref={holderRef} className="absolute inset-0 h-full w-full" />
-        {needsTap && ready && (
-          <motion.button
-            onClick={start}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--panel)] text-neutral-200"
-            whileTap={{ scale: 0.98 }}
-          >
-            <div className="text-lg font-medium">tap to start listening</div>
-            <div className="text-sm text-[var(--muted)]">browsers need one tap before audio plays</div>
-          </motion.button>
-        )}
-        {!needsTap && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[var(--panel)] text-neutral-300">
-            <div className="flex items-center gap-2 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
-              <span
-                className={`h-1.5 w-1.5 ${playing ? "rec-dot bg-[var(--accent)]" : "bg-[var(--muted)]"}`}
-              />
-              {playing ? "listening" : "clip ready"}
-            </div>
-            <div className="flex h-8 items-end gap-1.5">
-              {BAR_HEIGHTS.map((h, i) => (
-                <motion.span
-                  key={i}
-                  className="w-1.5 bg-[var(--accent)]"
-                  style={{ height: `${h}px`, transformOrigin: "bottom" }}
-                  animate={
-                    playing
-                      ? { scaleY: [0.4, 1.4, 0.7, 1.2, 0.4] }
-                      : { scaleY: 0.5 }
-                  }
-                  transition={
-                    playing
-                      ? {
-                          duration: 0.7 + i * 0.08,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }
-                      : { duration: 0.2 }
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        )}
+    <div className="relative overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-9 sm:px-8 sm:py-12">
+      <div className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0" aria-hidden="true">
+        <div ref={holderRef} />
       </div>
-      <motion.button
-        onClick={replay}
-        disabled={!ready}
-        whileTap={{ scale: 0.97 }}
-        className="mt-3 border border-[var(--line)] px-4 py-2 text-sm text-neutral-200 transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40"
-      >
-        replay clip
-      </motion.button>
+      <div className="mx-auto flex max-w-xl flex-col items-center text-center">
+        <div className="flex h-14 items-center justify-center gap-1.5" aria-hidden="true">
+          {BAR_HEIGHTS.map((height, index) => (
+            <span
+              key={index}
+              className={`w-1.5 bg-[var(--accent)] transition-opacity duration-300 ${playing ? "wave-bar" : "opacity-30"}`}
+              style={{ height, animationDelay: `${index * 70}ms` }}
+            />
+          ))}
+        </div>
+
+        <motion.button
+          type="button"
+          onClick={replay}
+          disabled={!ready}
+          whileTap={{ scale: 0.97 }}
+          aria-label={needsTap ? "Start listening" : "Replay clip"}
+          className="mt-8 flex min-h-14 items-center gap-2.5 rounded-[var(--radius)] bg-[var(--accent)] px-6 py-3 font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-40"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-[2.5]" strokeLinecap="round" strokeLinejoin="round">
+            {needsTap ? <path d="m9 7 8 5-8 5V7Z" /> : <><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6" /><path d="M4 4v4.6h4.6" /></>}
+          </svg>
+          {!ready ? "Loading audio…" : needsTap ? "Start listening" : "Replay clip"}
+        </motion.button>
+      </div>
     </div>
   );
 }

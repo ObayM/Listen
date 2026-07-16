@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, useMotionValue, animate } from "framer-motion";
-import type { BlankToken, BlankResult } from "@/lib/blanks";
+import { animate, motion, useMotionValue } from "framer-motion";
+import Button from "@/components/ui/Button";
+import type { BlankResult, BlankToken } from "@/lib/blanks";
 
 type DiffToken = {
   type: "ok" | "sub" | "missing" | "extra";
@@ -21,10 +22,22 @@ export type ScoreResult = {
   blankResults?: BlankResult[];
 };
 
-const VERDICT_COLOR: Record<string, string> = {
-  correct: "text-emerald-400",
-  close: "text-amber-400",
-  incorrect: "text-rose-400",
+const VERDICT = {
+  correct: {
+    label: "Great listening",
+    panel: "border-[var(--correct)] bg-[var(--correct-soft)]",
+    tone: "text-[var(--correct)]",
+  },
+  close: {
+    label: "Almost there",
+    panel: "border-[var(--close)] bg-[var(--close-soft)]",
+    tone: "text-[var(--close)]",
+  },
+  incorrect: {
+    label: "Keep training",
+    panel: "border-[var(--incorrect)] bg-[var(--incorrect-soft)]",
+    tone: "text-[var(--incorrect)]",
+  },
 };
 
 const tokenVariants = {
@@ -34,45 +47,21 @@ const tokenVariants = {
 
 function Diff({ diff }: { diff: DiffToken[] }) {
   return (
-    <motion.p
-      className="flex flex-wrap gap-x-2 gap-y-1 text-lg leading-relaxed"
-      initial="hidden"
-      animate="show"
-      transition={{ staggerChildren: 0.02 }}
-    >
-      {diff.map((t, i) => {
-        if (t.type === "ok")
+    <motion.p className="flex flex-wrap gap-x-2 gap-y-1 text-lg leading-relaxed" initial="hidden" animate="show" transition={{ staggerChildren: 0.02 }}>
+      {diff.map((token, index) => {
+        if (token.type === "ok") return <motion.span key={index} variants={tokenVariants}>{token.hyp}</motion.span>;
+        if (token.type === "sub") {
           return (
-            <motion.span key={i} variants={tokenVariants} className="text-neutral-300">
-              {t.hyp}
+            <motion.span key={index} variants={tokenVariants} className="inline-flex items-baseline gap-1.5">
+              <span className="font-semibold text-[var(--accent-dark)] underline decoration-2">{token.ref}</span>
+              <span className="text-[var(--incorrect)] line-through opacity-70">{token.hyp}</span>
             </motion.span>
           );
-        if (t.type === "sub")
-          return (
-            <motion.span key={i} variants={tokenVariants} className="inline-flex items-baseline gap-1">
-              <span className="text-emerald-400">{t.ref}</span>
-              <span className="text-rose-400 line-through decoration-rose-500/60">{t.hyp}</span>
-            </motion.span>
-          );
-        if (t.type === "missing")
-          return (
-            <motion.span
-              key={i}
-              variants={tokenVariants}
-              className="text-amber-400 underline decoration-dotted"
-            >
-              {t.ref}
-            </motion.span>
-          );
-        return (
-          <motion.span
-            key={i}
-            variants={tokenVariants}
-            className="text-rose-400 line-through decoration-rose-500/60"
-          >
-            {t.hyp}
-          </motion.span>
-        );
+        }
+        if (token.type === "missing") {
+          return <motion.span key={index} variants={tokenVariants} className="font-semibold text-[var(--accent-dark)] underline decoration-dotted">{token.ref}</motion.span>;
+        }
+        return <motion.span key={index} variants={tokenVariants} className="text-[var(--incorrect)] line-through opacity-70">{token.hyp}</motion.span>;
       })}
     </motion.p>
   );
@@ -80,29 +69,15 @@ function Diff({ diff }: { diff: DiffToken[] }) {
 
 function BlanksReveal({ tokens, results }: { tokens: BlankToken[]; results: BlankResult[] }) {
   return (
-    <motion.p
-      className="text-lg leading-relaxed whitespace-pre-wrap"
-      initial="hidden"
-      animate="show"
-      transition={{ staggerChildren: 0.03 }}
-    >
-      {tokens.map((t, i) => {
-        if (!("blank" in t)) return <span key={i}>{t.text}</span>;
-        const r = results[t.index];
-        if (!r) return null;
-        if (r.correct) {
-          return (
-            <motion.span key={i} variants={tokenVariants} className="text-emerald-400">
-              {r.answer}
-            </motion.span>
-          );
-        }
+    <motion.p className="text-lg leading-relaxed whitespace-pre-wrap" initial="hidden" animate="show" transition={{ staggerChildren: 0.03 }}>
+      {tokens.map((token, index) => {
+        if (!("blank" in token)) return <span key={index}>{token.text}</span>;
+        const result = results[token.index];
+        if (!result) return null;
         return (
-          <motion.span key={i} variants={tokenVariants} className="inline-flex items-baseline gap-1">
-            <span className="text-emerald-400">{r.answer}</span>
-            {r.guess && (
-              <span className="text-rose-400 line-through decoration-rose-500/60">{r.guess}</span>
-            )}
+          <motion.span key={index} variants={tokenVariants} className="inline-flex items-baseline gap-1.5">
+            <span className="font-semibold text-[var(--accent-dark)] underline decoration-2">{result.answer}</span>
+            {!result.correct && result.guess && <span className="text-[var(--incorrect)] line-through opacity-70">{result.guess}</span>}
           </motion.span>
         );
       })}
@@ -115,12 +90,9 @@ function AnimatedScore({ value }: { value: number }) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    const unsub = count.on("change", (v) => setDisplay(Math.round(v)));
-    const controls = animate(count, value, { duration: 0.6, ease: "easeOut" });
-    return () => {
-      controls.stop();
-      unsub();
-    };
+    const unsubscribe = count.on("change", (next) => setDisplay(Math.round(next)));
+    const controls = animate(count, value, { duration: 0.55, ease: "easeOut" });
+    return () => { controls.stop(); unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
@@ -136,50 +108,36 @@ export default function Feedback({
   onNext: () => void;
   blankTokens?: BlankToken[];
 }) {
+  const style = VERDICT[result.verdict];
   const isBlanks = result.mode === "blanks" && blankTokens && result.blankResults;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="mt-6 border border-[var(--line)] bg-[var(--panel)] p-5"
-    >
-      <div className="flex items-center justify-between">
-        <div className={`font-mono text-2xl font-semibold tabular-nums ${VERDICT_COLOR[result.verdict]}`}>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: "easeOut" }} className="mt-6 border-t border-[var(--line)] pt-6">
+      <div className={`flex flex-col gap-4 rounded-[var(--radius)] border p-5 sm:flex-row sm:items-center sm:justify-between ${style.panel}`}>
+        <div>
+          <p className={`font-semibold ${style.tone}`}>{style.label}</p>
+          <p className="mt-0.5 text-sm text-[var(--muted)]">{result.feedback}</p>
+        </div>
+        <div className={`font-mono text-3xl font-semibold tabular-nums ${style.tone}`}>
           <AnimatedScore value={result.score} />
-          <span className="ml-1 text-sm font-normal text-[var(--muted)]">/100</span>
-        </div>
-        <div className="border border-[var(--line)] px-2 py-0.5 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">
-          {result.mode === "blanks" ? "blanks" : result.matchedByFastPath ? "instant" : "diff"}
+          <span className="text-sm font-medium opacity-70">/100</span>
         </div>
       </div>
 
-      <div className="mt-4">
-        <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">how it lines up</div>
-        {isBlanks ? (
-          <BlanksReveal tokens={blankTokens!} results={result.blankResults!} />
-        ) : (
-          <Diff diff={result.diff} />
-        )}
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="card p-4">
+          <p className="eyebrow mb-2">Your answer</p>
+          {isBlanks ? <BlanksReveal tokens={blankTokens!} results={result.blankResults!} /> : <Diff diff={result.diff} />}
+        </div>
+        <div className="card bg-[var(--surface-muted)] p-4">
+          <p className="eyebrow mb-2">What was said</p>
+          <p className="heard text-xl leading-relaxed text-[var(--ink)]">{result.transcript}</p>
+        </div>
       </div>
 
-      {!isBlanks && (
-        <div className="mt-4">
-          <div className="mb-1 font-mono text-xs tracking-widest text-[var(--muted)] uppercase">actual</div>
-          <p className="text-lg text-neutral-100">{result.transcript}</p>
-        </div>
-      )}
-
-      <p className="mt-4 text-neutral-300">{result.feedback}</p>
-
-      <motion.button
-        onClick={onNext}
-        whileTap={{ scale: 0.98 }}
-        className="mt-5 w-full bg-[var(--accent)] px-4 py-3 font-mono text-sm font-medium tracking-wide text-black uppercase transition-opacity hover:opacity-90"
-      >
-        next clip
-      </motion.button>
+      <div className="mt-5 flex justify-end">
+        <Button onClick={onNext} className="w-full sm:w-auto sm:min-w-44">Next clip <span aria-hidden="true" className="ml-2">→</span></Button>
+      </div>
     </motion.div>
   );
 }

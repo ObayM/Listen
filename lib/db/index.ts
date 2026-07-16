@@ -1,5 +1,7 @@
 import * as schema from "./schema";
 
+/* The proxy supports two Drizzle drivers with different runtime-only types. */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
 type DB = any;
 
 let cached: DB | null = null;

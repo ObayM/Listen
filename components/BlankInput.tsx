@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Button from "@/components/ui/Button";
 import type { BlankToken } from "@/lib/blanks";
-import { motion } from "framer-motion";
 
 type Props = {
   tokens: BlankToken[];
@@ -19,49 +19,44 @@ export default function BlankInput({ tokens, guesses, onChange, onSubmit, disabl
     if (!disabled) firstRef.current?.focus();
   }, [disabled, tokens]);
 
-  const setAt = (i: number, value: string) => {
+  const setAt = (index: number, value: string) => {
     const next = [...guesses];
-    next[i] = value;
+    next[index] = value;
     onChange(next);
   };
 
-  const filled = guesses.some((g) => g && g.trim().length > 0);
+  const filled = guesses.some((guess) => guess?.trim());
 
   return (
-    <div className="mt-5">
-      <div className="border border-[var(--line)] bg-[var(--panel)] p-4 text-lg leading-loose whitespace-pre-wrap text-neutral-100">
-        {tokens.map((t, i) =>
-          "blank" in t ? (
+    <div className="mt-6 border-t border-[var(--line)] pt-6">
+      <p className="mb-2 text-sm font-semibold text-[var(--ink)]">Complete the sentence</p>
+      <div className="rounded-[var(--radius)] border border-[var(--line-strong)] bg-[var(--surface)] p-4 text-lg leading-[2.65] whitespace-pre-wrap text-[var(--ink)] sm:p-5">
+        {tokens.map((token, index) =>
+          "blank" in token ? (
             <input
-              key={i}
-              ref={t.index === 0 ? firstRef : undefined}
-              value={guesses[t.index] ?? ""}
+              key={index}
+              ref={token.index === 0 ? firstRef : undefined}
+              value={guesses[token.index] ?? ""}
               disabled={disabled}
-              onChange={(e) => setAt(t.index, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
+              onChange={(event) => setAt(token.index, event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
                   onSubmit();
                 }
               }}
-              style={{ width: `${Math.max(3, t.length + 1.5)}ch` }}
+              style={{ width: `${Math.max(4, token.length + 2)}ch` }}
+              aria-label={`Missing word ${token.index + 1}`}
               autoComplete="off"
               spellCheck={false}
-              className="mx-1 border-b-2 border-[var(--accent)] bg-transparent text-center text-neutral-100 outline-none disabled:opacity-50"
+              className="mx-1 rounded-[var(--radius-sm)] border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-1 text-center font-semibold text-[var(--accent-dark)] outline-none focus:bg-[var(--surface)] disabled:opacity-50"
             />
-          ) : (
-            <span key={i}>{t.text}</span>
-          ),
+          ) : <span key={index}>{token.text}</span>,
         )}
       </div>
-      <motion.button
-        onClick={onSubmit}
-        disabled={disabled || !filled}
-        whileTap={{ scale: 0.98 }}
-        className="mt-3 w-full bg-[var(--accent)] px-4 py-3 font-mono text-sm font-medium tracking-wide text-black uppercase transition-opacity hover:opacity-90 disabled:opacity-30"
-      >
-        check
-      </motion.button>
+      <div className="mt-3 flex justify-end">
+        <Button onClick={onSubmit} disabled={disabled || !filled} className="w-full sm:w-auto sm:min-w-40">Check answer</Button>
+      </div>
     </div>
   );
 }

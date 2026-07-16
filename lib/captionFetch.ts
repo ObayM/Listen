@@ -34,6 +34,8 @@ function parseJson3(raw: string): Cue[] {
   for (const ev of events) {
     if (!ev.segs) continue;
     const text = ev.segs
+      // yt-dlp's json3 segment shape is intentionally loose at this boundary.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((s: any) => s.utf8 ?? "")
       .join("")
       .replace(/\s+/g, " ")
@@ -53,7 +55,7 @@ export async function fetchOfficialCaptions(
 ): Promise<OfficialCaptions | null> {
   const dir = await mkdtemp(join(tmpdir(), "cap-"));
   try {
-    const res = await runYtDlp([
+    await runYtDlp([
       "--skip-download",
       "--write-subs",
       "--sub-langs",

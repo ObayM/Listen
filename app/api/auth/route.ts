@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { accounts } from "@/lib/db/schema";
+import { accounts, attempts } from "@/lib/db/schema";
 import { hashPassphrase, verifyPassphrase } from "@/lib/passphrase";
 
 export async function POST(req: Request) {
-  const { username, passphrase } = await req.json();
+  const { username, passphrase, deviceId } = await req.json();
   const name = typeof username === "string" ? username.trim().toLowerCase() : "";
   if (name.length < 3 || typeof passphrase !== "string" || passphrase.length < 4) {
     return NextResponse.json(
@@ -21,12 +21,26 @@ export async function POST(req: Request) {
       .insert(accounts)
       .values({ username: name, passphraseHash: hashPassphrase(passphrase) })
       .returning();
-    return NextResponse.json({ id: created.id, username: created.username });
+    const mergedAttempts = await mergeAnonymousHistory(deviceId, created.id);
+    return NextResponse.json({ id: created.id, username: created.username, mergedAttempts });
   }
 
   const account = existing[0];
   if (!verifyPassphrase(passphrase, account.passphraseHash)) {
     return NextResponse.json({ error: "wrong passphrase for that name" }, { status: 401 });
   }
-  return NextResponse.json({ id: account.id, username: account.username });
+  const mergedAttempts = await mergeAnonymousHistory(deviceId, account.id);
+  return NextResponse.json({ id: account.id, username: account.username, mergedAttempts });
+}
+
+async function mergeAnonymousHistory(deviceId: unknown, accountId: string) {
+  if (typeof deviceId !== "string" || !deviceId || deviceId === accountId) return 0;
+
+  const moved = await db
+    .update(attempts)
+    .set({ deviceId: accountId })
+    .where(and(eq(attempts.deviceId, deviceId), ne(attempts.deviceId, accountId)))
+    .returning({ id: attempts.id });
+
+  return moved.length;
 }
