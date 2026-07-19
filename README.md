@@ -22,4 +22,10 @@ That starts PostgreSQL, pushes the schema, and runs the Next.js development serv
 
 If the database is empty, just open the app. Listen will find its first clips automatically and start practicing as soon as they are ready
 
+## Why it's endless
+
+There’s no final lesson or finish line, once you finish one clip, another is ready to go :)
+The indexer can keep pulling in newly published, captioned videos too, so the practice pool keeps growing with you!!
+
+
 That's it, enojy :)
