@@ -1,7 +1,9 @@
 <h1 align="center">Listen</h1>
 <h3 align="center">The calmer way to get better at hearing real English</h3>
 
-![Listen demo](./public/demo.gif)
+<p align="center">
+  <img src="./public/demo.gif" alt="Listen demo" width="800" />
+</p>
 
 Listen is a small dictation app built around the part of language learning that is annoyingly hard to fake: understanding what somebody actually said at normal speed.
 
