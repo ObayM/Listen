@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+coverage
+drizzle
+
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+*.json3
+*.pem
+
+.claude
+.agents
+.codex

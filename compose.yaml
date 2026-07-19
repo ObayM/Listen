@@ -1,0 +1,42 @@
+name: listen-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-listen}
+      POSTGRES_USER: ${POSTGRES_USER:-listen}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-listen}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - listen_dev_db:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      target: tools
+    command: >-
+      sh -c "npm run db:push && npm run dev -- --hostname 0.0.0.0"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-listen}:${POSTGRES_PASSWORD:-listen}@db:5432/${POSTGRES_DB:-listen}
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - listen_dev_modules:/app/node_modules
+      - listen_dev_next:/app/.next
+
+volumes:
+  listen_dev_db:
+  listen_dev_modules:
+  listen_dev_next:
