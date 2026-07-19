@@ -16,15 +16,36 @@ export type OfficialCaptions = {
 };
 
 function runYtDlp(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const p = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     p.stdout.on("data", (d) => (stdout += d.toString()));
     p.stderr.on("data", (d) => (stderr += d.toString()));
-    p.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
-    p.on("error", (e) => resolve({ code: 1, stdout, stderr: String(e) }));
+    p.on("close", (code) => {
+      const result = { code: code ?? 1, stdout, stderr };
+      try {
+        throwIfYtDlpFailed(result);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    p.on("error", (error) => {
+      reject(new Error(`Unable to start yt-dlp: ${error.message}`, { cause: error }));
+    });
   });
+}
+
+export function throwIfYtDlpFailed(result: {
+  code: number;
+  stdout: string;
+  stderr: string;
+}): void {
+  if (result.code === 0) return;
+
+  const detail = result.stderr.trim() || result.stdout.trim() || "No error output was produced.";
+  throw new Error(`yt-dlp exited with code ${result.code}: ${detail}`);
 }
 
 function parseJson3(raw: string): Cue[] {
@@ -56,6 +77,8 @@ export async function fetchOfficialCaptions(
   const dir = await mkdtemp(join(tmpdir(), "cap-"));
   try {
     await runYtDlp([
+      "--js-runtimes",
+      "node",
       "--skip-download",
       "--write-subs",
       "--sub-langs",
@@ -68,6 +91,8 @@ export async function fetchOfficialCaptions(
       join(dir, "%(id)s.%(ext)s"),
       `https://www.youtube.com/watch?v=${videoId}`,
     ]);
+    // A successful command with no subtitle file means no matching manual
+    // caption track. Command failures are thrown by runYtDlp instead.
     const files = (await readdir(dir)).filter((f) => f.endsWith(".json3"));
     if (files.length === 0) {
       return null;
@@ -94,6 +119,8 @@ export async function listChannelVideos(
   limit: number,
 ): Promise<ChannelVideo[]> {
   const res = await runYtDlp([
+    "--js-runtimes",
+    "node",
     "--flat-playlist",
     "--print",
     "%(id)s\t%(title)s",

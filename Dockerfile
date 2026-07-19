@@ -17,7 +17,7 @@ FROM workspace AS tools
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3-pip \
-  && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+  && pip3 install --no-cache-dir --break-system-packages 'yt-dlp[default]' \
   && rm -rf /var/lib/apt/lists/*
 
 FROM workspace AS builder
@@ -36,7 +36,7 @@ ENV NODE_ENV=production \
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3-pip \
-  && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+  && pip3 install --no-cache-dir --break-system-packages 'yt-dlp[default]' \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs

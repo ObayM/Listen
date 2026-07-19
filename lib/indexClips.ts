@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { fetchOfficialCaptions, listChannelVideos } from "@/lib/captionFetch";
 import { db } from "@/lib/db";
 import { clips, videos } from "@/lib/db/schema";
@@ -17,9 +17,10 @@ export type IndexSummary = {
 
 async function alreadyIndexed(videoId: string): Promise<boolean> {
   const rows = await db
-    .select({ id: videos.id })
-    .from(videos)
-    .where(sql`${videos.id} = ${videoId}`);
+    .select({ id: clips.id })
+    .from(clips)
+    .where(eq(clips.videoId, videoId))
+    .limit(1);
   return rows.length > 0;
 }
 
@@ -51,7 +52,15 @@ export async function indexClips(options: IndexOptions = {}): Promise<IndexSumma
               title: video.title,
               hasStandardCaption: false,
             })
-            .onConflictDoNothing();
+            .onConflictDoUpdate({
+              target: videos.id,
+              set: {
+                channelName: channel.name,
+                title: video.title,
+                hasStandardCaption: false,
+                indexedAt: new Date(),
+              },
+            });
           continue;
         }
 
@@ -70,7 +79,16 @@ export async function indexClips(options: IndexOptions = {}): Promise<IndexSumma
             lang: captions.lang,
             hasStandardCaption: true,
           })
-          .onConflictDoNothing();
+          .onConflictDoUpdate({
+            target: videos.id,
+            set: {
+              channelName: channel.name,
+              title: video.title,
+              lang: captions.lang,
+              hasStandardCaption: true,
+              indexedAt: new Date(),
+            },
+          });
 
         await db.insert(clips).values(
           segments.map((segment) => ({
