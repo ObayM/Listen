@@ -11,6 +11,8 @@ drizzle
 npm-debug.log*
 *.json3
 *.pem
+secrets
+youtube-cookies*.txt
 
 .claude
 .agents

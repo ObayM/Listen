@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -48,6 +48,34 @@ export function throwIfYtDlpFailed(result: {
   throw new Error(`yt-dlp exited with code ${result.code}: ${detail}`);
 }
 
+let inlineCookiePath: Promise<string> | null = null;
+
+export function decodeCookieFile(encoded: string): string {
+  const decoded = Buffer.from(encoded, "base64").toString("utf8");
+  const firstLine = decoded.split(/\r?\n/, 1)[0]?.trim();
+  if (firstLine !== "# Netscape HTTP Cookie File" && firstLine !== "# HTTP Cookie File") {
+    throw new Error("YOUTUBE_COOKIES_BASE64 is not a Netscape-format cookie file.");
+  }
+  return decoded;
+}
+
+async function materializeInlineCookies(encoded: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "youtube-cookies-"));
+  const path = join(dir, "cookies.txt");
+  await writeFile(path, decodeCookieFile(encoded), { encoding: "utf8", mode: 0o600 });
+  return path;
+}
+
+async function cookieArgs(): Promise<string[]> {
+  const cookiePath = process.env.YOUTUBE_COOKIES_PATH?.trim();
+  if (cookiePath) return ["--cookies", cookiePath];
+
+  const encoded = process.env.YOUTUBE_COOKIES_BASE64?.trim();
+  if (!encoded) return [];
+  inlineCookiePath ??= materializeInlineCookies(encoded);
+  return ["--cookies", await inlineCookiePath];
+}
+
 function parseJson3(raw: string): Cue[] {
   const data = JSON.parse(raw);
   const events = Array.isArray(data?.events) ? data.events : [];
@@ -79,6 +107,7 @@ export async function fetchOfficialCaptions(
     await runYtDlp([
       "--js-runtimes",
       "node",
+      ...(await cookieArgs()),
       "--skip-download",
       "--write-subs",
       "--sub-langs",
@@ -121,6 +150,7 @@ export async function listChannelVideos(
   const res = await runYtDlp([
     "--js-runtimes",
     "node",
+    ...(await cookieArgs()),
     "--flat-playlist",
     "--print",
     "%(id)s\t%(title)s",

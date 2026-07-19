@@ -46,4 +46,6 @@ next-env.d.ts
 
 # yt-dlp temp
 *.json3
+/secrets/
+youtube-cookies*.txt
 .claude/
