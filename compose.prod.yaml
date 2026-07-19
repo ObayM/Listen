@@ -20,7 +20,7 @@ services:
     build:
       context: .
       target: tools
-    command: sh -c "npm run db:push && npm run index"
+    command: npm run db:push
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-listen}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-listen}
     depends_on:

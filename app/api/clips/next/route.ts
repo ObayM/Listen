@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { and, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clips } from "@/lib/db/schema";
 import { buildBlanks } from "@/lib/blanks";
+import { clipBootstrapStatus, startClipBootstrap } from "@/lib/clipBootstrap";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 const DIFFICULTY_RANGES: Record<string, [number, number]> = {
   easy: [0, 4.2],
@@ -34,7 +36,30 @@ export async function GET(req: Request) {
     .limit(1);
 
   if (rows.length === 0) {
-    return NextResponse.json({ error: "no clips indexed yet" }, { status: 404 });
+    const anyClips = await db.select({ id: clips.id }).from(clips).limit(1);
+    if (anyClips.length > 0) {
+      return NextResponse.json(
+        { error: "No clips match this difficulty yet.", code: "no_matching_clips" },
+        { status: 404 },
+      );
+    }
+
+    const bootstrap = clipBootstrapStatus();
+    if (bootstrap.status === "failed") {
+      return NextResponse.json(
+        { error: "Automatic clip setup failed. Check the server logs.", code: "seed_failed" },
+        { status: 500 },
+      );
+    }
+
+    if (bootstrap.status === "idle") {
+      after(() => startClipBootstrap());
+    }
+
+    return NextResponse.json(
+      { message: "Preparing the first listening clips.", code: "seeding" },
+      { status: 202 },
+    );
   }
 
   const { transcript, ...clip } = rows[0];

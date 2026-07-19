@@ -44,6 +44,7 @@ export default function PracticePage() {
   const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [seedPoll, setSeedPoll] = useState(0);
   const [difficulty, setDifficulty] = useState<Difficulty>("any");
   const [mode, setMode] = useState<Mode>("dictation");
   const replayCount = useRef(0);
@@ -66,24 +67,35 @@ export default function PracticePage() {
     try {
       const query = params.toString();
       const response = await fetch(`/api/clips/next${query ? `?${query}` : ""}`);
-      if (!response.ok) {
+      if (response.status === 202) {
         setClip(null);
-        setError(
-          response.status === 404
-            ? "No listening clips are ready yet. Index clips to begin practicing."
-            : "We couldn't load a clip. Please try again.",
-        );
+        setSeedPoll((value) => value + 1);
+        return;
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setClip(null);
+        setSeedPoll(0);
+        setError(data?.error ?? "We couldn't load a clip. Please try again.");
         return;
       }
       setClip(await response.json());
+      setSeedPoll(0);
       shownAt.current = Date.now();
     } catch {
       setClip(null);
+      setSeedPoll(0);
       setError("We couldn't connect to the clip library. Please try again.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (seedPoll === 0) return;
+    const timer = window.setTimeout(loadNext, 8000);
+    return () => window.clearTimeout(timer);
+  }, [loadNext, seedPoll]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -182,7 +194,21 @@ export default function PracticePage() {
         </div>
       )}
 
-      {loading && !clip && (
+      {seedPoll > 0 && !clip && (
+        <div role="status" className="card px-6 py-12 text-center sm:px-8">
+          <div className="mx-auto flex h-10 items-end justify-center gap-1" aria-hidden="true">
+            {[12, 22, 16, 30, 18, 25, 14].map((height, index) => (
+              <span key={index} className="wave-bar w-1 bg-[var(--accent)]" style={{ height, animationDelay: `${index * 70}ms` }} />
+            ))}
+          </div>
+          <h2 className="mt-5 text-xl font-semibold text-[var(--ink)]">Preparing your first clips</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[var(--muted)]">
+            Listen is finding a few officially captioned videos. This only happens once and can take a couple of minutes.
+          </p>
+        </div>
+      )}
+
+      {loading && !clip && seedPoll === 0 && (
         <div className="card animate-pulse p-6 sm:p-8">
           <div className="mx-auto h-5 w-36 rounded bg-[var(--surface-muted)]" />
           <div className="mx-auto mt-8 h-24 max-w-md bg-[var(--surface-muted)]" />

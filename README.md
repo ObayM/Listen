@@ -20,10 +20,6 @@ docker compose up --build
 
 That starts PostgreSQL, pushes the schema, and runs the Next.js development server with hot reload at [http://localhost:3000](http://localhost:3000). Source files stay mounted from the host; `node_modules`, the Next.js cache, and database data live in named volumes so Linux dependencies do not leak into your local checkout.
 
-The database starts empty. Fill it once using this command
-
-```bash
-docker compose exec app npm run index
-```
+If the database is empty, just open the app. Listen will find its first clips automatically and start practicing as soon as they are ready
 
 That's it, enojy :)

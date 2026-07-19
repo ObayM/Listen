@@ -34,7 +34,11 @@ ENV NODE_ENV=production \
   HOSTNAME=0.0.0.0 \
   PORT=3000
 
-RUN groupadd --system --gid 1001 nodejs \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates python3-pip \
+  && pip3 install --no-cache-dir --break-system-packages yt-dlp \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
