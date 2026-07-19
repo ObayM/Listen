@@ -44,11 +44,8 @@ export default function PracticePage() {
   const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [seen, setSeen] = useState(0);
   const [difficulty, setDifficulty] = useState<Difficulty>("any");
   const [mode, setMode] = useState<Mode>("dictation");
-  const [scores, setScores] = useState<number[]>([]);
-  const [streak, setStreak] = useState(0);
   const replayCount = useRef(0);
   const shownAt = useRef(0);
   const difficultyRef = useRef<Difficulty>("any");
@@ -79,7 +76,6 @@ export default function PracticePage() {
         return;
       }
       setClip(await response.json());
-      setSeen((value) => value + 1);
       shownAt.current = Date.now();
     } catch {
       setClip(null);
@@ -140,8 +136,6 @@ export default function PracticePage() {
 
       const data: ScoreResult = await response.json();
       setResult(data);
-      setScores((values) => [...values, data.score]);
-      setStreak((value) => (data.verdict === "correct" ? value + 1 : 0));
 
       const missedWords = data.blankResults
         ? data.blankResults
@@ -175,25 +169,15 @@ export default function PracticePage() {
     }
   };
 
-  const averageScore = scores.length
-    ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
-    : null;
-
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
-      <section className="mb-6 flex items-baseline justify-end gap-6 text-sm">
-        <span className="text-[var(--muted)]">Session <span className="ml-1 font-mono font-semibold text-[var(--ink)] tabular-nums">{String(seen).padStart(2, "0")}</span></span>
-        <span className="text-[var(--muted)]">Streak <span className="ml-1 font-mono font-semibold text-[var(--ink)] tabular-nums">{streak}</span></span>
-        <span className="text-[var(--muted)]">Average <span className="ml-1 font-mono font-semibold text-[var(--ink)] tabular-nums">{averageScore ?? "—"}</span></span>
-      </section>
-
       <section className="mb-6 grid gap-4 sm:grid-cols-2">
-        <SegmentedControl label="Exercise" value={mode} options={MODES} onChange={pickMode} />
-        <SegmentedControl label="Difficulty" value={difficulty} options={DIFFICULTIES} onChange={pickDifficulty} />
+        <SegmentedControl label="Exercise" value={mode} options={MODES} onChange={pickMode} variant="tabs" />
+        <SegmentedControl label="Difficulty" value={difficulty} options={DIFFICULTIES} onChange={pickDifficulty} variant="chips" />
       </section>
 
       {error && (
-        <div role="alert" className="mb-6 rounded-[var(--radius)] border border-[var(--incorrect)] bg-[var(--incorrect-soft)] p-4 text-sm font-medium text-[var(--incorrect)]">
+        <div role="alert" className="mb-6 border border-[var(--incorrect)] bg-[var(--incorrect-soft)] p-4 text-sm font-medium text-[var(--incorrect)]">
           {error}
         </div>
       )}
@@ -201,7 +185,7 @@ export default function PracticePage() {
       {loading && !clip && (
         <div className="card animate-pulse p-6 sm:p-8">
           <div className="mx-auto h-5 w-36 rounded bg-[var(--surface-muted)]" />
-          <div className="mx-auto mt-8 h-24 max-w-md rounded-[var(--radius)] bg-[var(--surface-muted)]" />
+          <div className="mx-auto mt-8 h-24 max-w-md bg-[var(--surface-muted)]" />
         </div>
       )}
 

@@ -13,7 +13,7 @@ export default function ProgressOverview({ compact = false }: { compact?: boolea
   if (loading) {
     return (
       <div aria-label="Loading progress" className={`grid animate-pulse gap-4 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-        {[0, 1, 2].map((item) => <div key={item} className="h-44 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]" />)}
+        {[0, 1, 2].map((item) => <div key={item} className="h-44 border border-[var(--line)] bg-[var(--surface)]" />)}
       </div>
     );
   }
@@ -37,7 +37,7 @@ export default function ProgressOverview({ compact = false }: { compact?: boolea
         </div>
         <h2 className="mt-5 text-xl font-semibold text-[var(--ink)]">Your first result starts here</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">Complete a listening clip and your score, streak, and tricky words will appear here.</p>
-        <Link href="/practice" className="mt-5 inline-flex min-h-11 items-center rounded-[var(--radius)] bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]">Start practicing</Link>
+        <Link href="/practice" className="mt-5 inline-flex min-h-11 items-center rounded-[var(--radius)] border-2 border-[var(--line-strong)] bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--ink)] shadow-[3px_3px_0_var(--ink)] transition-all hover:bg-[var(--accent-hover)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none">Start practicing</Link>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export default function ProgressOverview({ compact = false }: { compact?: boolea
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {data.weakWords.map((item) => (
-              <span key={item.word} className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
+              <span key={item.word} className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
                 {item.word}<span className="font-mono text-xs text-[var(--muted)]">×{item.count}</span>
               </span>
             ))}

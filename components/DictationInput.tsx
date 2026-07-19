@@ -21,7 +21,7 @@ export default function DictationInput({ value, onChange, onSubmit, disabled }: 
   return (
     <div className="mt-6 border-t border-[var(--line)] pt-6">
       <label htmlFor="dictation-answer" className="mb-2 block text-sm font-semibold text-[var(--ink)]">What did you hear?</label>
-      <div className={`rounded-[var(--radius)] border bg-[var(--surface)] transition-colors ${focused ? "border-[var(--accent)]" : "border-[var(--line-strong)]"}`}>
+      <div className={`rounded-[var(--radius)] border bg-[var(--surface)] transition-colors ${focused ? "border-[var(--accent-dark)]" : "border-[var(--line)]"}`}>
         <textarea
           id="dictation-answer"
           ref={ref}

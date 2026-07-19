@@ -21,7 +21,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Infinite Listening",
+  title: "Listen",
   description: "Build sharper English listening skills, one short clip at a time.",
 };
 

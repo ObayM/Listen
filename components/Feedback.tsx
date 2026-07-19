@@ -113,7 +113,7 @@ export default function Feedback({
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: "easeOut" }} className="mt-6 border-t border-[var(--line)] pt-6">
-      <div className={`flex flex-col gap-4 rounded-[var(--radius)] border p-5 sm:flex-row sm:items-center sm:justify-between ${style.panel}`}>
+      <div className={`flex flex-col gap-4 border p-5 sm:flex-row sm:items-center sm:justify-between ${style.panel}`}>
         <div>
           <p className={`font-semibold ${style.tone}`}>{style.label}</p>
           <p className="mt-0.5 text-sm text-[var(--muted)]">{result.feedback}</p>

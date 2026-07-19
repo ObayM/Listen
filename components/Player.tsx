@@ -104,7 +104,7 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-9 sm:px-8 sm:py-12">
+    <div className="relative overflow-hidden border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-9 sm:px-8 sm:py-12">
       <div className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0" aria-hidden="true">
         <div ref={holderRef} />
       </div>
@@ -125,7 +125,10 @@ export default function Player({ videoId, startSec, endSec, onReplay }: Props) {
           disabled={!ready}
           whileTap={{ scale: 0.97 }}
           aria-label={needsTap ? "Start listening" : "Replay clip"}
-          className="mt-8 flex min-h-14 items-center gap-2.5 rounded-[var(--radius)] bg-[var(--accent)] px-6 py-3 font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-40"
+          className={`mt-8 flex items-center gap-2.5 rounded-[var(--radius)] font-semibold transition-all disabled:opacity-40 ${needsTap
+            ? "min-h-12 border-2 border-[var(--line-strong)] bg-[var(--accent)] px-6 py-3 text-[var(--ink)] shadow-[4px_4px_0_var(--ink)] hover:bg-[var(--accent-hover)] active:translate-x-1 active:translate-y-1 active:shadow-none"
+            : "min-h-9 border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+          }`}
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-[2.5]" strokeLinecap="round" strokeLinejoin="round">
             {needsTap ? <path d="m9 7 8 5-8 5V7Z" /> : <><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6" /><path d="M4 4v4.6h4.6" /></>}
