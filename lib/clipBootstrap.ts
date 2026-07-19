@@ -4,6 +4,7 @@ type BootstrapState = {
   status: "idle" | "running" | "failed";
   promise: Promise<IndexSummary> | null;
   error: string | null;
+  failedAt: number | null;
 };
 
 const globalState = globalThis as typeof globalThis & {
@@ -15,13 +16,14 @@ function getState(): BootstrapState {
     status: "idle",
     promise: null,
     error: null,
+    failedAt: null,
   };
   return globalState.__listenClipBootstrap;
 }
 
 export function clipBootstrapStatus() {
   const state = getState();
-  return { status: state.status, error: state.error };
+  return { status: state.status, error: state.error, failedAt: state.failedAt };
 }
 
 export function startClipBootstrap(): Promise<IndexSummary> {
@@ -30,19 +32,22 @@ export function startClipBootstrap(): Promise<IndexSummary> {
 
   state.status = "running";
   state.error = null;
-  state.promise = indexClips({ videosPerChannel: 3, stopAfterClips: 20 })
+  state.failedAt = null;
+  state.promise = indexClips({ videosPerChannel: 30, stopAfterClips: 20 })
     .then((summary) => {
       if (summary.clips === 0) {
         throw new Error("No usable officially-captioned clips were found.");
       }
       state.status = "idle";
+      state.failedAt = null;
       return summary;
     })
     .catch((error: unknown) => {
       state.status = "failed";
       state.error = error instanceof Error ? error.message : "Clip setup failed.";
+      state.failedAt = Date.now();
       console.error("Automatic clip setup failed", error);
-      throw error;
+      return { clips: 0, videos: 0 };
     })
     .finally(() => {
       state.promise = null;

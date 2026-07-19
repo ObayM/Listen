@@ -13,6 +13,7 @@ const DIFFICULTY_RANGES: Record<string, [number, number]> = {
   medium: [4.2, 5.5],
   hard: [5.5, 100],
 };
+const SEED_RETRY_MS = 60_000;
 
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -46,10 +47,8 @@ export async function GET(req: Request) {
 
     const bootstrap = clipBootstrapStatus();
     if (bootstrap.status === "failed") {
-      return NextResponse.json(
-        { error: "Automatic clip setup failed. Check the server logs.", code: "seed_failed" },
-        { status: 500 },
-      );
+      const retryReady = !bootstrap.failedAt || Date.now() - bootstrap.failedAt >= SEED_RETRY_MS;
+      if (retryReady) after(() => startClipBootstrap());
     }
 
     if (bootstrap.status === "idle") {

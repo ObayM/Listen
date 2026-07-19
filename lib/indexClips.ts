@@ -29,9 +29,7 @@ export async function indexClips(options: IndexOptions = {}): Promise<IndexSumma
 
   for (const channel of CHANNELS) {
     console.log(`\n=== ${channel.name} ===`);
-    const limit = options.videosPerChannel
-      ? Math.min(options.videosPerChannel, channel.videosPerRun)
-      : channel.videosPerRun;
+    const limit = options.videosPerChannel ?? channel.videosPerRun;
     const channelVideos = await listChannelVideos(channel.url, limit);
     console.log(`  found ${channelVideos.length} videos`);
 
